@@ -779,7 +779,7 @@ void VolumeConverter::generateTiles(std::string output_path, std::string flat_pa
 		// iomanager::IOPluginFactory::getPlugin2D(iomanager::IMIN_PLUGIN)->readData(flat_path,width,height,flat_bytes_x_chan,flat_chans,flat_data);
 		
 		// Scale the flat image to the size of the stitched image
-		// unsigned char* scaled_data;
+		unsigned char* scaled_data;
 		// scaleImage(flat_data, width1, height1, width, height, scaled_data);
 
 		scaled_data = new unsigned char[width * height];
