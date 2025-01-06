@@ -77,6 +77,9 @@
 #include "ProgressBar.h"
 #include "iomanager.config.h"
 #include <math.h>
+#include <vector>
+#include <iostream>
+#include <cmath>
 #include <string>
 
 #include <stdarg.h>
@@ -569,6 +572,49 @@ void VolumeConverter::setSubVolume(int _V0, int _V1, int _H0, int _H1, int _D0, 
 }
 
 
+// void scaleImage(unsigned char* flat_data, int width1, int height1, int width, int height, unsigned char*& scaled_data) {
+//     // Allocate memory for the scaled image
+//     scaled_data = new unsigned char[width * height];
+
+//     // Calculate scaling factors
+//     double x_ratio = static_cast<double>(width1) / width;
+//     double y_ratio = static_cast<double>(height1) / height;
+
+//     // Loop through the scaled image
+//     for (int y = 0; y < height; ++y) {
+//         for (int x = 0; x < width; ++x) {
+//             // Calculate the corresponding source coordinates
+//             double src_x = x * x_ratio;
+//             double src_y = y * y_ratio;
+
+//             int x0 = static_cast<int>(std::floor(src_x));
+//             int y0 = static_cast<int>(std::floor(src_y));
+//             int x1 = std::min(x0 + 1, width1 - 1);
+//             int y1 = std::min(y0 + 1, height1 - 1);
+
+//             // Interpolation weights
+//             double x_diff = src_x - x0;
+//             double y_diff = src_y - y0;
+
+//             // Get pixel values for interpolation
+//             unsigned char p00 = flat_data[y0 * width1 + x0];
+//             unsigned char p01 = flat_data[y0 * width1 + x1];
+//             unsigned char p10 = flat_data[y1 * width1 + x0];
+//             unsigned char p11 = flat_data[y1 * width1 + x1];
+
+//             // Perform bilinear interpolation
+//             double interpolated_value =
+//                 (1 - x_diff) * (1 - y_diff) * p00 +
+//                 x_diff * (1 - y_diff) * p01 +
+//                 (1 - x_diff) * y_diff * p10 +
+//                 x_diff * y_diff * p11;
+
+//             // Assign the interpolated value to the scaled data
+//             scaled_data[y * width + x] = static_cast<unsigned char>(std::round(interpolated_value));
+//         }
+//     }
+// }
+
 void VolumeConverter::setCompressionAlgorithm(int _nbits ) throw (iim::IOException, iom::exception) {
 	if ( _nbits > 0 ) {
 		lossy_compression = true;
@@ -732,6 +778,50 @@ void VolumeConverter::generateTiles(std::string output_path, std::string flat_pa
 		iomanager::IOPluginFactory::getPlugin2D(iomanager::IMIN_PLUGIN)->readData(flat_path, width1, height1, flat_bytes_x_chan, flat_chans, flat_data, params);
 		// iomanager::IOPluginFactory::getPlugin2D(iomanager::IMIN_PLUGIN)->readData(flat_path,width,height,flat_bytes_x_chan,flat_chans,flat_data);
 		
+		// Scale the flat image to the size of the stitched image
+		// unsigned char* scaled_data;
+		// scaleImage(flat_data, width1, height1, width, height, scaled_data);
+
+		scaled_data = new unsigned char[width * height];
+
+		// Calculate scaling factors
+		double x_ratio = static_cast<double>(width1) / width;
+		double y_ratio = static_cast<double>(height1) / height;
+
+		// Loop through the scaled image
+		for (int y = 0; y < height; ++y) {
+			for (int x = 0; x < width; ++x) {
+				// Calculate the corresponding source coordinates
+				double src_x = x * x_ratio;
+				double src_y = y * y_ratio;
+
+				int x0 = static_cast<int>(std::floor(src_x));
+				int y0 = static_cast<int>(std::floor(src_y));
+				int x1 = std::min(x0 + 1, width1 - 1);
+				int y1 = std::min(y0 + 1, height1 - 1);
+
+				// Interpolation weights
+				double x_diff = src_x - x0;
+				double y_diff = src_y - y0;
+
+				// Get pixel values for interpolation
+				unsigned char p00 = flat_data[y0 * width1 + x0];
+				unsigned char p01 = flat_data[y0 * width1 + x1];
+				unsigned char p10 = flat_data[y1 * width1 + x0];
+				unsigned char p11 = flat_data[y1 * width1 + x1];
+
+				// Perform bilinear interpolation
+				double interpolated_value =
+					(1 - x_diff) * (1 - y_diff) * p00 +
+					x_diff * (1 - y_diff) * p01 +
+					(1 - x_diff) * y_diff * p10 +
+					x_diff * y_diff * p11;
+
+				// Assign the interpolated value to the scaled data
+				scaled_data[y * width + x] = static_cast<unsigned char>(std::round(interpolated_value));
+			}
+		}
+
 		// long flat_sum = 0;
 		// for (int i=0; i < width1 * height1; i++)
 		// {
@@ -1119,7 +1209,7 @@ void VolumeConverter::generateTiles(std::string output_path, std::string flat_pa
 										{
 											buffer_mod = ubuffer[0][2*i];
 											buffer_divisor = ubuffer[0][2*i+1];
-											buffer_value = (float) (256 * buffer_divisor + buffer_mod) / (float) flat_data[i] * (float) flat_mean;
+											buffer_value = (float) (256 * buffer_divisor + buffer_mod) / (float) scaled_data[i] * (float) flat_mean;
 											if (buffer_value > 65535) {
 												buffer_value = (float) 65535;
 											}
